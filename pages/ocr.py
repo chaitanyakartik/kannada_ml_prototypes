@@ -3,6 +3,13 @@ import requests
 import base64
 from PIL import Image
 import io
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 def show():
     """Display the OCR interface"""
@@ -10,7 +17,8 @@ def show():
     st.title("📝 OCR Text Extraction")
     
     # API endpoint
-    API_URL = "http://localhost:8004/infer"
+    NGROK_BASE = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
+    API_URL = f"{NGROK_BASE}/ocr/infer"
     
     # Language selection
     language = st.selectbox(

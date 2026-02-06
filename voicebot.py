@@ -8,6 +8,15 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# Initialize SSH tunnels before anything else
+from ssh_tunnel_manager import initialize_tunnels
+
+# Start SSH tunnels (only runs once)
+if 'tunnels_initialized' not in st.session_state:
+    with st.spinner("🔒 Establishing secure connections..."):
+        initialize_tunnels()
+        st.session_state.tunnels_initialized = True
+
 # Hide Streamlit's default header, menu, and footer
 st.markdown("""
     <style>

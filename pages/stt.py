@@ -2,6 +2,13 @@ import streamlit as st
 import requests
 import io
 import traceback
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 def show():
     """Display the Speech-to-Text interface"""
@@ -9,7 +16,8 @@ def show():
     st.title("🎙️ Speech-to-Text Converter")
     
     # API endpoint
-    API_URL = "http://localhost:8001/transcribe"
+    NGROK_BASE = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
+    API_URL = f"{NGROK_BASE}/asr/transcribe"
     
     # Language selection
     language = st.selectbox(

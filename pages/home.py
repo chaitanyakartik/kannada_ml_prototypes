@@ -79,11 +79,10 @@ def show():
         
         ### 📋 Prerequisites
         
-        Make sure you have the following backend services running:
+        Make sure you have configured your ngrok base URL in the `.env` file:
         
-        - **OCR Service**: `http://localhost:8004/infer`
-        - **TTS Service**: `http://localhost:8002/tts`
-        - **Translation Service**: `http://localhost:8003/translate`
+        - **Ngrok Base URL**: Set `NGROK_BASE_URL` in `.env`
+        - Services will use: `/ocr`, `/tts`, `/translation`, `/asr`
         - **Gemini API Key**: Required for Voice Bot (enter in settings)
         
         ### 💡 Tips

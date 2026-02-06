@@ -3,6 +3,13 @@ import requests
 import base64
 import io
 import soundfile as sf
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 def show():
     """Display the Text-to-Speech interface"""
@@ -10,7 +17,8 @@ def show():
     st.title("🔊 Text-to-Speech Interface")
     
     # API endpoint
-    API_URL = "http://localhost:8002/tts"
+    NGROK_BASE = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
+    API_URL = f"{NGROK_BASE}/tts/tts"
     
     # Text input
     text = st.text_area(

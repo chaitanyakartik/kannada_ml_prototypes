@@ -1,6 +1,13 @@
 import streamlit as st
 import requests
 import re
+import os
+from pathlib import Path
+from dotenv import load_dotenv
+
+# Load environment variables
+env_path = Path(__file__).parent.parent / '.env'
+load_dotenv(env_path)
 
 def show():
     """Display the Translation interface"""
@@ -8,7 +15,8 @@ def show():
     st.title("🌍 English to Kannada Translation")
     
     # API endpoint
-    API_URL = "http://localhost:8003/translate"
+    NGROK_BASE = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
+    API_URL = f"{NGROK_BASE}/translation/translation"
     
     # Batching configuration
     SENTENCES_PER_BATCH = 2
