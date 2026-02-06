@@ -12,8 +12,8 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load variables from .env file in the same directory as this script
-env_path = Path(__file__).parent / '.env'
-load_dotenv(env_path)
+# env_path = Path(__file__).parent / '.env'
+load_dotenv()
 
 # SSH Configuration
 JUMP_HOST = os.getenv("JUMPHOST")
@@ -25,6 +25,9 @@ PORTS = [8001, 8002, 8003, 8004]
 # Passwords
 JUMP_PASSWORD = os.getenv("JUMP_PASSWORD")
 TARGET_PASSWORD = os.getenv("TARGET_PASSWORD")
+
+if not JUMP_HOST or not TARGET_HOST:
+    raise ValueError("Missing JUMPHOST or TARGETHOST in .env file")
 
 if __name__ == "__main__" or os.getenv("DEBUG_TUNNELS"):
     print(f"[Tunnel Manager] Config loaded from: {env_path}")
