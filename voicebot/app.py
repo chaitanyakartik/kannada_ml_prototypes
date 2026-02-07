@@ -255,7 +255,11 @@ def save_messages_to_json(messages):
     """Save complete message history to JSON file (atomic write)"""
     try:
         # Write to temp file first, then rename (atomic operation)
-        temp_file = MESSAGES_FILE + ".tmp"
+        # temp_file = MESSAGES_FILE + ".tmp"
+        # TO THIS (The pathlib way):
+        temp_file = MESSAGES_FILE.with_suffix(MESSAGES_FILE.suffix + ".tmp")
+        # OR THIS (The simple way):
+        temp_file = str(MESSAGES_FILE) + ".tmp"
         with open(temp_file, 'w', encoding='utf-8') as f:
             json.dump(messages, f, ensure_ascii=False, indent=2)
         os.replace(temp_file, MESSAGES_FILE)
