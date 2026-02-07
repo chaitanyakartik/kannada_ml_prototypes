@@ -22,11 +22,25 @@ load_dotenv()
 NGROK_BASE_URL = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
 STT_API_URL = f"{NGROK_BASE_URL}/asr/transcribe"
 TTS_API_URL = f"{NGROK_BASE_URL}/tts/tts"  # Fixed: was /tts/tts, should be /tts
-CONTEXT_FILE = "/Users/chaitanyakartik/Projects/TTS/prototype/voicebot/data/master.json"
-MESSAGES_FILE = "/Users/chaitanyakartik/Projects/TTS/prototype/voicebot/data/messages.json"
+
+# Get the directory where this script is located
+SCRIPT_DIR = Path(__file__).parent
+
+# Try relative paths, fallback to voicebot/ prefix if not found
+CONTEXT_FILE = SCRIPT_DIR / "data" / "master.json"
+if not CONTEXT_FILE.exists():
+    CONTEXT_FILE = SCRIPT_DIR / "voicebot" / "data" / "master.json"
+
+MESSAGES_FILE = SCRIPT_DIR / "data" / "messages.json"
+if not MESSAGES_FILE.parent.exists():
+    MESSAGES_FILE = SCRIPT_DIR / "voicebot" / "data" / "messages.json"
 
 # Audio storage directory
-AUDIO_STORAGE_DIR = Path("/Users/chaitanyakartik/Projects/TTS/prototype/voicebot/audio_cache")
+AUDIO_STORAGE_DIR = SCRIPT_DIR / "audio_cache"
+if not AUDIO_STORAGE_DIR.exists():
+    alt_audio_dir = SCRIPT_DIR / "voicebot" / "audio_cache"
+    if alt_audio_dir.exists():
+        AUDIO_STORAGE_DIR = alt_audio_dir
 AUDIO_STORAGE_DIR.mkdir(exist_ok=True, parents=True)
 
 # --- Gemini Client Setup ---
