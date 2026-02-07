@@ -10,6 +10,26 @@ from dotenv import load_dotenv
 env_path = Path(__file__).parent.parent / '.env'
 load_dotenv(env_path)
 
+# Bytecode to Kannada character mappings
+BYTECODE_MAP = {
+    '<0xE0><0xB2><0x94>': 'ಔ',  # Kannada letter AU
+    '<0xE0><0xB2><0x8A>': 'ಊ',  # Kannada letter UU
+    '<0xE0><0xB2><0x8E>': 'ಎ',  # Kannada letter E
+    '<0xE0><0xB2><0x90>': 'ಐ',  # Kannada letter AI
+    '<0xE0><0xB2><0xA2>': 'ಢ',  # Kannada letter DDHA
+    '<0xE0><0xB2><0x9D>': 'ಝ',  # Kannada letter JHA
+    '<0xE0><0xB2><0x8B>': 'ಋ',  # Kannada letter VOCALIC R
+    '<0x2E>': '.',  # Period/Full stop
+}
+
+
+def fix_bytecodes(text):
+    """Replace bytecodes with proper Kannada characters"""
+    corrected = text
+    for bytecode, kannada_char in BYTECODE_MAP.items():
+        corrected = corrected.replace(bytecode, kannada_char)
+    return corrected
+
 def show():
     """Display the Speech-to-Text interface"""
     
@@ -123,6 +143,10 @@ def show():
                                 result.get('transcript') or
                                 ''
                             )
+                            
+                            # Fix bytecode errors in the transcribed text
+                            if transcribed_text:
+                                transcribed_text = fix_bytecodes(transcribed_text)
                             
                             if transcribed_text:
                                 st.success("✅ Transcription completed!")
