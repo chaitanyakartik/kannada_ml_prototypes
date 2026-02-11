@@ -65,3 +65,4 @@ tmp/
 # Audio/Image uploads (if storing locally)
 uploads/
 audio_output/
+voicebot/audio_cache/*wav

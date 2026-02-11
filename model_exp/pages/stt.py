@@ -7,8 +7,7 @@ from pathlib import Path
 from dotenv import load_dotenv
 
 # Load environment variables
-env_path = Path(__file__).parent.parent / '.env'
-load_dotenv(env_path)
+load_dotenv()
 
 # Bytecode to Kannada character mappings
 BYTECODE_MAP = {

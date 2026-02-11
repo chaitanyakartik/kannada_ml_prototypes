@@ -8,21 +8,25 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
-# Hide Streamlit's default header, menu, and footer
+# Hide Streamlit's default menu, footer, deploy button, and default page navigation
 st.markdown("""
     <style>
     #MainMenu {visibility: hidden;}
-    header {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display: none;}
-    
-    /* Hide file viewer/browser in sidebar */
-    [data-testid="stSidebarNav"] {display: none;}
+    section[data-testid="stSidebarNav"] {display: none !important;}
+    [data-testid="stSidebarNav"] {display: none !important;}
+    [data-testid="stSidebarNav"]::before {display: none !important;}
+    [data-testid="stSidebarNav"]::after {display: none !important;}
     </style>
 """, unsafe_allow_html=True)
 
 # Import page modules
 from pages import home, ocr, stt, translation, tts
+
+# Initialize session state for page navigation
+if 'page' not in st.session_state:
+    st.session_state.page = "🏠 Home"
 
 # Sidebar navigation
 st.sidebar.title("🤖 AI Tools Suite")
@@ -32,28 +36,31 @@ st.sidebar.markdown("---")
 page = st.sidebar.radio(
     "Select a tool:",
     ["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"],
-    index=0
+    index=["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"].index(st.session_state.page) if st.session_state.page in ["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"] else 0
 )
+
+# Update session state when sidebar selection changes
+st.session_state.page = page
 
 st.sidebar.markdown("---")
 st.sidebar.markdown(
     """
     <div style='text-align: center; color: #666; font-size: 0.8em;'>
-    <p>AI Tools Suite v1.0</p>
-    <p>Select a tool from above to get started</p>
+        <p>AI Tools Suite v1.0</p>
+        <p>Select a tool to get started</p>
     </div>
     """,
     unsafe_allow_html=True
 )
 
 # Route to appropriate page
-if page == "🏠 Home":
+if st.session_state.page == "🏠 Home":
     home.show()
-elif page == "📝 OCR":
+elif st.session_state.page == "📝 OCR":
     ocr.show()
-elif page == "🎙️ Voice Bot":
+elif st.session_state.page == "🎙️ Voice Bot":
     stt.show()
-elif page == "🌍 Translation":
+elif st.session_state.page == "🌍 Translation":
     translation.show()
-elif page == "🔊 Text-to-Speech":
+elif st.session_state.page == "🔊 Text-to-Speech":
     tts.show()

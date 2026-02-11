@@ -1,107 +1,126 @@
 import streamlit as st
 
 def show():
-    """Display the home page with welcome message and tool overview"""
+    """Display a minimalistic home page with clickable tool cards"""
     
-    # Simple welcome message
+    # Welcome header
     st.markdown(
         """
-        <div style='text-align: center; padding: 1rem 0;'>
-            <p style='font-size: 1.1rem; color: #666;'>
-                Your all-in-one platform for AI-powered text, speech, and vision tasks
+        <div style='text-align: center; padding: 2rem 0 3rem 0;'>
+            <h1 style='margin-bottom: 0.5rem;'>AI Tools Suite</h1>
+            <p style='font-size: 1.1rem; color: #888;'>
+                Select a tool to get started
             </p>
         </div>
         """,
         unsafe_allow_html=True
     )
     
-    # Tools overview
-    st.header("Available Tools")
-    
-    col1, col2 = st.columns(2)
+    # Tool cards in a 2x2 grid
+    col1, col2 = st.columns(2, gap="large")
     
     with col1:
+        # OCR Card
         st.markdown(
             """
-            ### 📝 OCR (Optical Character Recognition)
-            Extract text from images in multiple languages including Kannada, Hindi, and English.
-            
-            **Features:**
-            - Multi-language support
-            - High accuracy text extraction
-            - Easy image upload
-            
-            ---
-            
-            ### 🎙️ Voice Bot
-            Interactive voice-based chatbot with speech recognition and AI responses.
-            
-            **Features:**
-            - Voice input/output
-            - Gemini AI integration
-            - Chat history
-            """
+            <div style='
+                border: 2px solid #444;
+                border-radius: 12px;
+                padding: 2.5rem 1.5rem;
+                text-align: center;
+                height: 200px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                background: transparent;
+                margin-bottom: 2rem;
+            '>
+                <div style='font-size: 3rem; margin-bottom: 1rem;'>📝</div>
+                <h3 style='margin: 0.5rem 0;'>OCR</h3>
+                <p style='color: #888; font-size: 0.9rem; margin: 0;'>Extract text from images</p>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
+        if st.button("Open OCR", key="ocr_btn", use_container_width=True):
+            st.session_state.page = "📝 OCR"
+            st.rerun()
+        
+        # Translation Card
+        st.markdown(
+            """
+            <div style='
+                border: 2px solid #444;
+                border-radius: 12px;
+                padding: 2.5rem 1.5rem;
+                text-align: center;
+                height: 200px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                background: transparent;
+                margin-top: 1rem;
+            '>
+                <div style='font-size: 3rem; margin-bottom: 1rem;'>🌍</div>
+                <h3 style='margin: 0.5rem 0;'>Translation</h3>
+                <p style='color: #888; font-size: 0.9rem; margin: 0;'>English to Kannada</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        if st.button("Open Translation", key="translation_btn", use_container_width=True):
+            st.session_state.page = "🌍 Translation"
+            st.rerun()
     
     with col2:
+        # Voice Bot Card
         st.markdown(
             """
-            ### 🌍 Translation
-            Translate English text to Kannada with advanced batching for long documents.
-            
-            **Features:**
-            - Batch processing
-            - Handles long texts
-            - High-quality translation
-            
-            ---
-            
-            ### 🔊 Text-to-Speech
-            Convert Kannada text to natural-sounding speech.
-            
-            **Features:**
-            - Natural voice synthesis
-            - Audio download
-            - Real-time generation
-            """
+            <div style='
+                border: 2px solid #444;
+                border-radius: 12px;
+                padding: 2.5rem 1.5rem;
+                text-align: center;
+                height: 200px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                background: transparent;
+                margin-bottom: 2rem;
+            '>
+                <div style='font-size: 3rem; margin-bottom: 1rem;'>🎙️</div>
+                <h3 style='margin: 0.5rem 0;'>Voice Bot</h3>
+                <p style='color: #888; font-size: 0.9rem; margin: 0;'>AI-powered voice assistant</p>
+            </div>
+            """,
+            unsafe_allow_html=True
         )
-    
-    st.markdown("---")
-    
-    # Getting started section
-    st.header("🚀 Getting Started")
-    
-    st.markdown(
-        """
-        1. **Select a tool** from the sidebar on the left
-        2. **Follow the instructions** for each specific tool
-        3. **Enjoy** the AI-powered capabilities!
+        if st.button("Open Voice Bot", key="voicebot_btn", use_container_width=True):
+            st.session_state.page = "🎙️ Voice Bot"
+            st.rerun()
         
-        ### 📋 Prerequisites
-        
-        Make sure you have configured your ngrok base URL in the `.env` file:
-        
-        - **Ngrok Base URL**: Set `NGROK_BASE_URL` in `.env`
-        - Services will use: `/ocr`, `/tts`, `/translation`, `/asr`
-        - **Gemini API Key**: Required for Voice Bot (enter in settings)
-        
-        ### 💡 Tips
-        
-        - Start with smaller files/texts to test each service
-        - Check that backend services are running before using the tools
-        - For Voice Bot, configure your API key in the sidebar settings
-        """
-    )
-    
-    st.markdown("---")
-    
-    # Footer
-    st.markdown(
-        """
-        <div style='text-align: center; color: #666; padding: 2rem 0;'>
-            <p>Built with ❤️ using Streamlit and various AI models</p>
-            <p style='font-size: 0.9rem;'>Select a tool from the sidebar to begin</p>
-        </div>
-        """,
-        unsafe_allow_html=True
-    )
+        # Text-to-Speech Card
+        st.markdown(
+            """
+            <div style='
+                border: 2px solid #444;
+                border-radius: 12px;
+                padding: 2.5rem 1.5rem;
+                text-align: center;
+                height: 200px;
+                display: flex;
+                flex-direction: column;
+                justify-content: center;
+                background: transparent;
+                margin-top: 1rem;
+            '>
+                <div style='font-size: 3rem; margin-bottom: 1rem;'>🔊</div>
+                <h3 style='margin: 0.5rem 0;'>Text-to-Speech</h3>
+                <p style='color: #888; font-size: 0.9rem; margin: 0;'>Convert text to voice</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        if st.button("Open Text-to-Speech", key="tts_btn", use_container_width=True):
+            st.session_state.page = "🔊 Text-to-Speech"
+            st.rerun()

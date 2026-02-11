@@ -13,8 +13,6 @@ from dotenv import load_dotenv
 from google import genai
 from google.oauth2 import service_account
 from google.genai.types import GenerateContentConfig
-from concurrent.futures import ThreadPoolExecutor, as_completed
-import threading
 
 # --- Configuration & Setup ---
 
@@ -23,7 +21,7 @@ load_dotenv()
 # Constants
 NGROK_BASE_URL = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
 STT_API_URL = f"{NGROK_BASE_URL}/asr/transcribe"
-TTS_API_URL = f"{NGROK_BASE_URL}/tts/tts"
+TTS_API_URL = f"{NGROK_BASE_URL}/tts/tts"  # Fixed: was /tts/tts, should be /tts
 
 # Get the directory where this script is located
 SCRIPT_DIR = Path(__file__).parent
@@ -275,6 +273,10 @@ def save_messages_to_json(messages):
     """Save complete message history to JSON file (atomic write)"""
     try:
         # Write to temp file first, then rename (atomic operation)
+        # temp_file = MESSAGES_FILE + ".tmp"
+        # TO THIS (The pathlib way):
+        temp_file = MESSAGES_FILE.with_suffix(MESSAGES_FILE.suffix + ".tmp")
+        # OR THIS (The simple way):
         temp_file = str(MESSAGES_FILE) + ".tmp"
         with open(temp_file, 'w', encoding='utf-8') as f:
             json.dump(messages, f, ensure_ascii=False, indent=2)
@@ -392,89 +394,6 @@ def generate_and_parse_response(genai_client, messages, metadata_string):
             "source_reference": "N/A"
         }
 
-def process_tts_chunk(chunk_text, chunk_index, total_chunks):
-    """Process a single TTS chunk - returns (index, audio_bytes, sample_rate, error)"""
-    try:
-        tts_response = requests.post(
-            TTS_API_URL, 
-            json={"text": chunk_text}, 
-            timeout=60
-        )
-        
-        if tts_response.status_code == 200:
-            tts_result = tts_response.json()
-            audio_b64 = tts_result.get("audio_base64")
-            sample_rate = tts_result.get("sample_rate", 22050)
-            
-            if audio_b64:
-                audio_bytes = base64.b64decode(audio_b64)
-                return (chunk_index, audio_bytes, sample_rate, None)
-            else:
-                return (chunk_index, None, None, f"Missing audio_base64 in response")
-        else:
-            return (chunk_index, None, None, f"TTS API returned status {tts_response.status_code}")
-    except Exception as e:
-        return (chunk_index, None, None, f"{type(e).__name__}: {str(e)}")
-
-def process_tts_concurrent(text_chunks):
-    """Process multiple TTS chunks concurrently and return stitched audio"""
-    audio_results = [None] * len(text_chunks)
-    sample_rate = 22050
-    errors = []
-    
-    with ThreadPoolExecutor(max_workers=min(5, len(text_chunks))) as executor:
-        futures = {
-            executor.submit(process_tts_chunk, chunk, i, len(text_chunks)): i 
-            for i, chunk in enumerate(text_chunks)
-        }
-        
-        for future in as_completed(futures):
-            chunk_index, audio_bytes, chunk_sample_rate, error = future.result()
-            
-            if error:
-                errors.append(f"Chunk {chunk_index + 1}: {error}")
-            elif audio_bytes:
-                audio_results[chunk_index] = audio_bytes
-                if chunk_index == 0 and chunk_sample_rate:
-                    sample_rate = chunk_sample_rate
-    
-    # Filter out None values
-    audio_chunks = [chunk for chunk in audio_results if chunk is not None]
-    
-    if not audio_chunks:
-        return None, sample_rate, errors
-    
-    # Stitch audio chunks
-    final_audio = stitch_audio_bytes(audio_chunks)
-    
-    return final_audio, sample_rate, errors
-
-# --- Status Widget Component ---
-
-class StatusWidget:
-    """A simple rotating status indicator"""
-    def __init__(self, container):
-        self.container = container
-        self.current_status = ""
-        self.placeholder = container.empty()
-        
-    def update(self, status_text, icon="⏳"):
-        """Update the status display"""
-        self.current_status = status_text
-        self.placeholder.markdown(f"{icon} **{status_text}**")
-    
-    def complete(self, message="Complete!", icon="✅"):
-        """Mark as complete"""
-        self.placeholder.markdown(f"{icon} **{message}**")
-    
-    def error(self, message="Error occurred", icon="❌"):
-        """Show error"""
-        self.placeholder.markdown(f"{icon} **{message}**")
-    
-    def clear(self):
-        """Clear the status"""
-        self.placeholder.empty()
-
 # --- Main Application ---
 
 def main():
@@ -487,6 +406,11 @@ def main():
     # Sidebar for controls
     with st.sidebar:
         st.header("Settings")
+        language = st.selectbox(
+            "Speech Language:",
+            ["kannada", "hindi", "english"],
+            index=0
+        )
         
         # Debug mode toggle
         debug_mode = st.checkbox("🐛 Debug Mode", value=False)
@@ -525,10 +449,10 @@ def main():
     # Initialize session state for temporary audio storage
     if "temp_audio" not in st.session_state:
         st.session_state.temp_audio = None
+    if "temp_audio_filename" not in st.session_state:
+        st.session_state.temp_audio_filename = "recording.wav"
     if "processing" not in st.session_state:
         st.session_state.processing = False
-    if "recorder_key" not in st.session_state:
-        st.session_state.recorder_key = 0
 
     # Load and display all messages from JSON
     messages = load_messages_from_json()
@@ -562,16 +486,34 @@ def main():
     try:
         from streamlit_mic_recorder import mic_recorder
         
-        st.write("🎙️ **Record Audio:**")
-        recorded_audio = mic_recorder(
-            start_prompt="🔴 Start Recording",
-            stop_prompt="⏹️ Stop Recording",
-            key=f"voice_recorder_{st.session_state.recorder_key}"
-        )
+        col1, col2 = st.columns([1, 1])
         
-        # Store recorded audio in session state
-        if recorded_audio and recorded_audio.get('bytes'):
-            st.session_state.temp_audio = recorded_audio['bytes']
+        with col1:
+            st.write("🎙️ **Record Audio:**")
+            recorded_audio = mic_recorder(
+                start_prompt="🔴 Start Recording",
+                stop_prompt="⏹️ Stop Recording",
+                key="voice_recorder"
+            )
+            
+            # Store recorded audio in session state
+            if recorded_audio and recorded_audio.get('bytes'):
+                st.session_state.temp_audio = recorded_audio['bytes']
+                st.session_state.temp_audio_filename = "recording.wav"
+        
+        with col2:
+            st.write("📁 **Or Upload Audio:**")
+            uploaded_file = st.file_uploader(
+                "Upload audio file",
+                type=["wav", "mp3", "ogg"],
+                label_visibility="collapsed",
+                key="audio_uploader"
+            )
+            
+            # Store uploaded audio in session state
+            if uploaded_file:
+                st.session_state.temp_audio = uploaded_file.read()
+                st.session_state.temp_audio_filename = uploaded_file.name
 
     except ImportError:
         st.error("⚠️ Please install streamlit-mic-recorder: `pip install streamlit-mic-recorder`")
@@ -587,200 +529,279 @@ def main():
         with col_cancel:
             if st.button("🗑️ Cancel", use_container_width=True):
                 st.session_state.temp_audio = None
+                st.session_state.temp_audio_filename = "recording.wav"
                 st.rerun()
         
         if send_button:
             st.session_state.processing = True
             
-            # Create a container for the status widget
-            status_placeholder = st.empty()
-            
-            with status_placeholder.container():
-                status = StatusWidget(st.container())
+            with st.status("Processing your request...", expanded=True) as status:
                 
                 # 1. STT - Transcribe audio
-                status.update("Transcribing audio...", "👂")
-            transcribed_text = ""
-            
-            try:
-                files = {
-                    'file': (
-                        'recording.wav',
-                        io.BytesIO(st.session_state.temp_audio),
-                        'audio/wav'
-                    )
-                }
-                # Use kannada as default language
-                data = {'language': 'kannada'}
+                status.write("👂 Transcribing audio...")
+                transcribed_text = ""
                 
-                stt_response = requests.post(STT_API_URL, files=files, data=data, timeout=60)
-                
-                if stt_response.status_code == 200:
-                    result = stt_response.json()
-                    raw_text = (
-                        result.get('text') or 
-                        result.get('transcription') or 
-                        result.get('transcript') or 
-                        ''
-                    )
-                    transcribed_text = fix_bytecodes(raw_text)
-                else:
-                    status.error(f"STT Error: {stt_response.text}")
-                    time.sleep(1)
-                    status_placeholder.empty()
+                try:
+                    files = {
+                        'file': (
+                            st.session_state.temp_audio_filename,
+                            io.BytesIO(st.session_state.temp_audio),
+                            'audio/wav'
+                        )
+                    }
+                    data = {'language': language}
+                    
+                    stt_response = requests.post(STT_API_URL, files=files, data=data, timeout=60)
+                    
+                    if stt_response.status_code == 200:
+                        result = stt_response.json()
+                        raw_text = (
+                            result.get('text') or 
+                            result.get('transcription') or 
+                            result.get('transcript') or 
+                            ''
+                        )
+                        transcribed_text = fix_bytecodes(raw_text)
+                        status.write(f"✅ Transcribed: {transcribed_text}")
+                    else:
+                        status.update(label="❌ STT Error", state="error")
+                        st.error(f"STT Error: {stt_response.text}")
+                        st.session_state.processing = False
+                        st.stop()
+                        
+                except Exception as e:
+                    status.update(label="❌ STT Connection Error", state="error")
+                    st.error(f"STT Error: {e}")
                     st.session_state.processing = False
                     st.stop()
-                    
-            except Exception as e:
-                status.error(f"STT Connection Error: {e}")
-                time.sleep(1)
-                status_placeholder.empty()
-                st.session_state.processing = False
-                st.stop()
 
-            if not transcribed_text:
-                st.warning("No speech detected in audio.")
-                status_placeholder.empty()
-                st.session_state.processing = False
-                st.session_state.temp_audio = None
-                st.stop()
+                if not transcribed_text:
+                    st.warning("No speech detected in audio.")
+                    st.session_state.processing = False
+                    st.session_state.temp_audio = None
+                    st.stop()
 
-            # Save user message to JSON
-            user_message = {
-                "id": f"msg_{int(time.time() * 1000)}",
-                "role": "user",
-                "content": transcribed_text,
-                "timestamp": datetime.now().isoformat()
-            }
-            append_message_to_json(user_message)
+                # Save user message to JSON
+                user_message = {
+                    "id": f"msg_{int(time.time() * 1000)}",
+                    "role": "user",
+                    "content": transcribed_text,
+                    "timestamp": datetime.now().isoformat()
+                }
+                append_message_to_json(user_message)
+                status.write("💾 User message saved")
 
-            # 2. Gemini - Generate response
-            status.update("Generating response...", "🧠")
-            
-            # Prepare conversation history for Gemini
-            all_messages = load_messages_from_json()
-            gemini_history = []
-            for msg in all_messages:
-                role = "user" if msg["role"] == "user" else "model"
-                gemini_history.append({"role": role, "parts": [{"text": msg["content"]}]})
-            
-            client = get_genai_client(sa_index=1)
-            
-            raw_response, response_json = generate_and_parse_response(
-                client, 
-                gemini_history, 
-                context_str
-            )
-
-            # Extract text response
-            final_response_text = ""
-            if response_json:
-                if "response" in response_json:
-                    final_response_text = response_json["response"]
-                elif "answer" in response_json:
-                    final_response_text = response_json["answer"]
-                else:
-                    final_response_text = str(response_json)
-            else:
-                final_response_text = "Sorry, I couldn't generate a valid response."
-
-            # 3. TTS - Generate audio
-            status.update("Generating audio response...", "🔊")
-            final_response_text = fix_bytecodes(final_response_text) 
-
-            audio_filepath = None
-            
-            # TTS debug metadata to store in JSON
-            tts_metadata = {
-                "tts_attempted": True,
-                "tts_api_url": TTS_API_URL,
-                "text_length": len(final_response_text),
-                "timestamp": datetime.now().isoformat(),
-                "payload": final_response_text
-            }
-            
-            try:
-                # Split text into chunks if too long
-                text_chunks = split_text_into_chunks(final_response_text, max_chars=100)
-                tts_metadata["num_chunks"] = len(text_chunks)
-                tts_metadata["chunks"] = text_chunks
+                # 2. Gemini - Generate response
+                status.write("🧠 Generating response...")
                 
-                # Process all chunks concurrently
-                final_audio_bytes, sample_rate, errors = process_tts_concurrent(text_chunks)
+                # Prepare conversation history for Gemini
+                all_messages = load_messages_from_json()
+                gemini_history = []
+                for msg in all_messages:
+                    role = "user" if msg["role"] == "user" else "model"
+                    gemini_history.append({"role": role, "parts": [{"text": msg["content"]}]})
                 
-                if errors:
-                    tts_metadata["errors"] = errors
+                client = get_genai_client(sa_index=1)
                 
-                if final_audio_bytes and len(final_audio_bytes) > 0:
-                    tts_metadata["decoded_bytes"] = len(final_audio_bytes)
-                    tts_metadata["sample_rate"] = sample_rate
-                    
-                    # Generate unique message ID
-                    message_id = f"msg_{int(time.time() * 1000)}"
-                    tts_metadata["message_id"] = message_id
-                    
-                    # Save audio to file
-                    audio_filepath = save_audio_to_file(final_audio_bytes, message_id)
-                    tts_metadata["audio_filepath"] = audio_filepath
-                    
-                    # Verify file exists
-                    if os.path.exists(audio_filepath):
-                        file_size = os.path.getsize(audio_filepath)
-                        tts_metadata["file_size_on_disk"] = file_size
-                        tts_metadata["file_exists"] = True
-                        
-                        # Track this audio file for cleanup
-                        track_audio_file(audio_filepath)
-                        tts_metadata["success"] = True
+                raw_response, response_json = generate_and_parse_response(
+                    client, 
+                    gemini_history, 
+                    context_str
+                )
+
+                # Extract text response
+                final_response_text = ""
+                if response_json:
+                    if "response" in response_json:
+                        final_response_text = response_json["response"]
+                    elif "answer" in response_json:
+                        final_response_text = response_json["answer"]
                     else:
-                        tts_metadata["file_exists"] = False
-                        tts_metadata["error"] = f"File not found after save: {audio_filepath}"
-                        audio_filepath = None
+                        final_response_text = str(response_json)
                 else:
-                    tts_metadata["error"] = "TTS returned empty audio or all chunks failed"
-                    
-            except Exception as e:
-                tts_metadata["error"] = f"{type(e).__name__}: {str(e)}"
-                import traceback
-                tts_metadata["traceback"] = traceback.format_exc()
+                    final_response_text = "Sorry, I couldn't generate a valid response."
 
-            # Save assistant message to JSON
-            assistant_message = {
-                "id": f"msg_{int(time.time() * 1000) + 1}",
-                "role": "assistant",
-                "content": final_response_text,
-                "timestamp": datetime.now().isoformat(),
-                "tts_debug": tts_metadata  # Store all TTS debug info
-            }
-            
-            if audio_filepath and os.path.exists(audio_filepath):
-                assistant_message["audio_file"] = audio_filepath
-                # Store sample rate if available for proper playback
-                if "sample_rate" in tts_metadata:
-                    assistant_message["sample_rate"] = tts_metadata["sample_rate"]
-            
-            append_message_to_json(assistant_message)
-            
-            status.complete("Complete!")
-            time.sleep(0.5)  # Brief pause to show completion
-            
-            # Clear the entire status widget container
-            status_placeholder.empty()
+                status.write("✅ Response generated")
+
+                # 3. TTS - Generate audio
+                status.write("🔊 Generating audio response...")
+                final_response_text = fix_bytecodes(final_response_text) 
+
+                status.write(f"📝 Text to convert (length: {len(final_response_text)} chars)")
+                audio_filepath = None
+                
+                # TTS debug metadata to store in JSON
+                tts_metadata = {
+                    "tts_attempted": True,
+                    "tts_api_url": TTS_API_URL,
+                    "text_length": len(final_response_text),
+                    "timestamp": datetime.now().isoformat(),
+                    "payload": final_response_text
+                }
+                
+                try:
+                    # Split text into chunks if too long
+                    text_chunks = split_text_into_chunks(final_response_text, max_chars=100)
+                    tts_metadata["num_chunks"] = len(text_chunks)
+                    tts_metadata["chunks"] = text_chunks
+                    
+                    if len(text_chunks) > 1:
+                        status.write(f"✂️ Split into {len(text_chunks)} chunks for TTS")
+                    
+                    audio_chunks = []
+                    sample_rate = 22050  # Default sample rate
+                    
+                    # Process each chunk
+                    for i, chunk in enumerate(text_chunks):
+                        chunk_status = f"📡 Chunk {i+1}/{len(text_chunks)}: Calling TTS API ({len(chunk)} chars)"
+                        status.write(chunk_status)
+                        
+                        tts_response = requests.post(
+                            TTS_API_URL, 
+                            json={"text": chunk}, 
+                            timeout=60
+                        )
+                        
+                        if i == 0:  # Store metadata from first chunk
+                            tts_metadata["status_code"] = tts_response.status_code
+                            status.write(f"📥 TTS Response Status: {tts_response.status_code}")
+                        
+                        if tts_response.status_code == 200:
+                            try:
+                                tts_result = tts_response.json()
+                                if i == 0:
+                                    tts_metadata["response_keys"] = list(tts_result.keys())
+                                    status.write(f"🔍 TTS Result Keys: {tts_metadata['response_keys']}")
+                            except Exception as json_err:
+                                tts_metadata["json_parse_error"] = str(json_err)
+                                tts_metadata["raw_response"] = tts_response.text[:500]
+                                status.write(f"❌ Failed to parse TTS JSON: {json_err}")
+                                raise
+                            
+                            audio_b64 = tts_result.get("audio_base64")
+                            chunk_sample_rate = tts_result.get("sample_rate", 22050)
+                            if i == 0:
+                                sample_rate = chunk_sample_rate
+                            
+                            if audio_b64:
+                                if i == 0:
+                                    tts_metadata["base64_length"] = len(audio_b64)
+                                    tts_metadata["sample_rate"] = sample_rate
+                                    status.write(f"📦 Base64 audio length: {len(audio_b64)} chars")
+                                    status.write(f"🎵 Sample rate: {sample_rate} Hz")
+                                
+                                try:
+                                    audio_bytes = base64.b64decode(audio_b64)
+                                    audio_chunks.append(audio_bytes)
+                                    status.write(f"✅ Chunk {i+1} decoded: {len(audio_bytes)} bytes")
+                                except Exception as decode_err:
+                                    tts_metadata["decode_error"] = str(decode_err)
+                                    status.write(f"❌ Base64 decode error: {decode_err}")
+                                    raise
+                            else:
+                                tts_metadata["error"] = f"Chunk {i+1} missing 'audio_base64' field"
+                                status.write(f"⚠️ {tts_metadata['error']}")
+                                break
+                        else:
+                            tts_metadata["error"] = f"TTS API returned status {tts_response.status_code} for chunk {i+1}"
+                            try:
+                                error_detail = tts_response.text[:500]
+                                tts_metadata["error_response"] = error_detail
+                                status.write(f"📄 Error response: {error_detail}")
+                            except:
+                                pass
+                            status.write(f"❌ {tts_metadata['error']}")
+                            break
+                    
+                    # Stitch audio chunks together
+                    if audio_chunks:
+                        if len(audio_chunks) > 1:
+                            status.write(f"🔗 Stitching {len(audio_chunks)} audio chunks...")
+                        
+                        final_audio_bytes = stitch_audio_bytes(audio_chunks)
+                        tts_metadata["decoded_bytes"] = len(final_audio_bytes)
+                        tts_metadata["stitched_chunks"] = len(audio_chunks)
+                        status.write(f"🎵 Final audio size: {len(final_audio_bytes)} bytes")
+                        
+                        if len(final_audio_bytes) > 0:
+                            # Generate unique message ID
+                            message_id = f"msg_{int(time.time() * 1000)}"
+                            tts_metadata["message_id"] = message_id
+                            
+                            # Save audio to file
+                            audio_filepath = save_audio_to_file(final_audio_bytes, message_id)
+                            tts_metadata["audio_filepath"] = audio_filepath
+                            status.write(f"💾 Audio file saved: {audio_filepath}")
+                            
+                            # Verify file exists and is readable
+                            if os.path.exists(audio_filepath):
+                                file_size = os.path.getsize(audio_filepath)
+                                tts_metadata["file_size_on_disk"] = file_size
+                                tts_metadata["file_exists"] = True
+                                status.write(f"✅ Verified file on disk: {file_size} bytes")
+                                
+                                # Track this audio file for cleanup
+                                track_audio_file(audio_filepath)
+                                tts_metadata["success"] = True
+                            else:
+                                tts_metadata["file_exists"] = False
+                                tts_metadata["error"] = f"File not found after save: {audio_filepath}"
+                                status.write(f"❌ ERROR: {tts_metadata['error']}")
+                                audio_filepath = None
+                        else:
+                            tts_metadata["error"] = "TTS returned empty audio (0 bytes after decode)"
+                            status.write(f"⚠️ {tts_metadata['error']}")
+                    else:
+                        tts_metadata["error"] = "No audio chunks were successfully generated"
+                        status.write(f"⚠️ {tts_metadata['error']}")
+                        
+                except requests.exceptions.Timeout:
+                    tts_metadata["error"] = "TTS request timed out (60s)"
+                    status.write(f"❌ {tts_metadata['error']}")
+                except requests.exceptions.ConnectionError as conn_err:
+                    tts_metadata["error"] = f"Cannot connect to TTS API: {conn_err}"
+                    status.write(f"❌ {tts_metadata['error']}")
+                    status.write(f"🔗 Check if server is running at: {TTS_API_URL}")
+                except Exception as e:
+                    tts_metadata["error"] = f"{type(e).__name__}: {str(e)}"
+                    import traceback
+                    tts_metadata["traceback"] = traceback.format_exc()
+                    status.write(f"❌ TTS Failed: {tts_metadata['error']}")
+                    status.write(f"📋 Traceback: {tts_metadata['traceback']}")
+
+                # Save assistant message to JSON
+                assistant_message = {
+                    "id": f"msg_{int(time.time() * 1000) + 1}",
+                    "role": "assistant",
+                    "content": final_response_text,
+                    "timestamp": datetime.now().isoformat(),
+                    "tts_debug": tts_metadata  # Store all TTS debug info
+                }
+                
+                if audio_filepath and os.path.exists(audio_filepath):
+                    assistant_message["audio_file"] = audio_filepath
+                    # Store sample rate if available for proper playback
+                    if "sample_rate" in tts_metadata:
+                        assistant_message["sample_rate"] = tts_metadata["sample_rate"]
+                
+                append_message_to_json(assistant_message)
+                status.write("💾 Assistant message saved")
+                
+                status.update(label="✅ Complete!", state="complete", expanded=False)
             
             # Clear temporary audio and reset state
             st.session_state.temp_audio = None
+            st.session_state.temp_audio_filename = "recording.wav"
             st.session_state.processing = False
             
-            # Increment recorder key to reset the mic recorder widget
-            st.session_state.recorder_key += 1
-            
             # Rerun to display new messages
+            time.sleep(0.2)  # Small delay to ensure JSON is written
             st.rerun()
     
     elif st.session_state.processing:
         st.info("⏳ Processing your message...")
     else:
-        st.info("🎤 Record audio to start")
+        st.info("🎤 Record or upload audio to start")
 
 if __name__ == "__main__":
     main()
