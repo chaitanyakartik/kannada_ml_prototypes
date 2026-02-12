@@ -36,15 +36,23 @@ def show():
     
     # API endpoint
     NGROK_BASE = os.getenv("NGROK_BASE_URL", "https://your-ngrok-url.ngrok-free.app")
-    API_URL = f"{NGROK_BASE}/asr/transcribe"
+    API_URL = f"{NGROK_BASE}/transcribe"
     
-    # Language selection
-    language = st.selectbox(
+    # Model selection with mapping
+    MODEL_OPTIONS = {
+        "English": "en",
+        "Kannada": "ka"
+    }
+    
+    selected_language = st.selectbox(
         "Select language:",
-        ["kannada", "hindi", "english"],
+        list(MODEL_OPTIONS.keys()),
         index=0,
         help="Select the language spoken in the audio"
     )
+    
+    # Get the model_id from the selection
+    model_id = MODEL_OPTIONS[selected_language]
     
     st.divider()
     
@@ -107,7 +115,7 @@ def show():
                     try:
                         # Log request details
                         st.write(f"🔍 Debug: Sending {len(audio_data)} bytes to {API_URL}")
-                        st.write(f"🔍 Debug: Language = {language}, Filename = {filename}")
+                        st.write(f"🔍 Debug: Model ID = {model_id}, Filename = {filename}")
                         
                         # Prepare file for multipart upload
                         files = {
@@ -116,7 +124,7 @@ def show():
                         
                         # Prepare form data
                         data = {
-                            'language': language
+                            'model_id': model_id
                         }
                         
                         # Make API request

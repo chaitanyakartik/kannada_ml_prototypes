@@ -73,7 +73,7 @@ def show():
             st.rerun()
     
     with col2:
-        # Voice Bot Card
+        # Speech-to-Text Card
         st.markdown(
             """
             <div style='
@@ -89,14 +89,14 @@ def show():
                 margin-bottom: 2rem;
             '>
                 <div style='font-size: 3rem; margin-bottom: 1rem;'>🎙️</div>
-                <h3 style='margin: 0.5rem 0;'>Voice Bot</h3>
-                <p style='color: #888; font-size: 0.9rem; margin: 0;'>AI-powered voice assistant</p>
+                <h3 style='margin: 0.5rem 0;'>Speech-to-Text</h3>
+                <p style='color: #888; font-size: 0.9rem; margin: 0;'>AI-powered voice transcription</p>
             </div>
             """,
             unsafe_allow_html=True
         )
-        if st.button("Open Voice Bot", key="voicebot_btn", use_container_width=True):
-            st.session_state.page = "🎙️ Voice Bot"
+        if st.button("Open Speech-to-Text", key="voicebot_btn", use_container_width=True):
+            st.session_state.page = "🎙️ Speech-to-Text"
             st.rerun()
         
         # Text-to-Speech Card

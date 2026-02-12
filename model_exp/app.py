@@ -35,8 +35,8 @@ st.sidebar.markdown("---")
 # Navigation menu
 page = st.sidebar.radio(
     "Select a tool:",
-    ["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"],
-    index=["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"].index(st.session_state.page) if st.session_state.page in ["🏠 Home", "📝 OCR", "🎙️ Voice Bot", "🌍 Translation", "🔊 Text-to-Speech"] else 0
+    ["🏠 Home", "📝 OCR", "🎙️ Speech-to-Text", "🌍 Translation", "🔊 Text-to-Speech"],
+    index=["🏠 Home", "📝 OCR", "🎙️ Speech-to-Text", "🌍 Translation", "🔊 Text-to-Speech"].index(st.session_state.page) if st.session_state.page in ["🏠 Home", "📝 OCR", "🎙️ Speech-to-Text", "🌍 Translation", "🔊 Text-to-Speech"] else 0
 )
 
 # Update session state when sidebar selection changes
@@ -58,7 +58,7 @@ if st.session_state.page == "🏠 Home":
     home.show()
 elif st.session_state.page == "📝 OCR":
     ocr.show()
-elif st.session_state.page == "🎙️ Voice Bot":
+elif st.session_state.page == "🎙️ Speech-to-Text":
     stt.show()
 elif st.session_state.page == "🌍 Translation":
     translation.show()
